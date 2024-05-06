@@ -21,7 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "I2C.h"
+#include "lcd.h"
+#include "adc.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -121,7 +123,10 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
 
-  // MX_TIM3_Init();
+  MX_TIM3_Init();
+  I2C_Config();
+  lcd_init();
+  ADC_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -131,8 +136,7 @@ int main(void)
   while (1)
   {
 	  CheckDirMotor();
-
-
+	  read_adc_battery();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -186,22 +190,17 @@ void SystemClock_Config(void)
   */
 static void MX_TIM2_Init(void)
 {
-	LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
-	 /* GPIO Ports Clock Enable */
-	LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
-		 /**/
-	LL_GPIO_ResetOutputPin(GPIOA, M1_HIN_L_Pin|M1_HIN_R_Pin);
-	 /* GPIO Ports Clock Enable */
-	 LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
-
-
   /* USER CODE BEGIN TIM2_Init 0 */
+	LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+	/* GPIO Ports Clock Enable */
+	LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
+	LL_GPIO_ResetOutputPin(GPIOA, M1_HIN_L_Pin|M1_HIN_R_Pin);
+	/* GPIO Ports Clock Enable */
 	RCC->APB1ENR |= (1<<0); /* enable TIM2 clock */
   /* USER CODE END TIM2_Init 0 */
 
   /* USER CODE BEGIN TIM2_Init 1 */
-	TIM2->CCR2 = 0;
-
+   TIM2->CCR2 = 0;
    TIM2->CCMR1 = 0X7000;	/* mode PWM2 CH2 */
   /* USER CODE END TIM2_Init 1 */
 
@@ -209,18 +208,16 @@ static void MX_TIM2_Init(void)
    TIM2->CCR3 = 0;
    TIM2->CCMR2 = 0X0070;	/* mode PWM2 CH2 */
    TIM2->CCER = (0x1 << 4)|(0x1 << 8);
-   TIM2->PSC = 200;
+   TIM2->PSC = 400;   /*THIS LINE CODE TO SIMULATION 100HZ, DELETE THIS IN REAL PROJECT*/
    TIM2->ARR = ARR_PWM - 1;
+   //ConfigTimer2Pin
+   GPIO_InitStruct.Pin = M1_HIN_L_Pin|M1_HIN_R_Pin ;
+   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE END TIM2_Init 2 */
-
-	//ConfigTimer2Pin
-	 GPIO_InitStruct.Pin = M1_HIN_L_Pin|M1_HIN_R_Pin ;
-	 GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-	 GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
-	 GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-	 LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
 }
 
 /**
@@ -235,39 +232,22 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 0 */
 
-  LL_TIM_InitTypeDef TIM_InitStruct = {0};
-  LL_TIM_OC_InitTypeDef TIM_OC_InitStruct = {0};
-
   LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* Peripheral clock enable */
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM3);
 
   /* USER CODE BEGIN TIM3_Init 1 */
-
+    TIM3->CCR2 = 0;
+    TIM3->CCMR1 = 0X7000;	/* mode PWM2 CH2 */
   /* USER CODE END TIM3_Init 1 */
-  TIM_InitStruct.Prescaler = 0;
-  TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 65535;
-  TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
-  LL_TIM_Init(TIM3, &TIM_InitStruct);
-  LL_TIM_DisableARRPreload(TIM3);
-  LL_TIM_SetClockSource(TIM3, LL_TIM_CLOCKSOURCE_INTERNAL);
-  LL_TIM_OC_EnablePreload(TIM3, LL_TIM_CHANNEL_CH2);
-  TIM_OC_InitStruct.OCMode = LL_TIM_OCMODE_PWM1;
-  TIM_OC_InitStruct.OCState = LL_TIM_OCSTATE_DISABLE;
-  TIM_OC_InitStruct.OCNState = LL_TIM_OCSTATE_DISABLE;
-  TIM_OC_InitStruct.CompareValue = 0;
-  TIM_OC_InitStruct.OCPolarity = LL_TIM_OCPOLARITY_HIGH;
-  LL_TIM_OC_Init(TIM3, LL_TIM_CHANNEL_CH2, &TIM_OC_InitStruct);
-  LL_TIM_OC_DisableFast(TIM3, LL_TIM_CHANNEL_CH2);
-  LL_TIM_OC_EnablePreload(TIM3, LL_TIM_CHANNEL_CH3);
-  LL_TIM_OC_Init(TIM3, LL_TIM_CHANNEL_CH3, &TIM_OC_InitStruct);
-  LL_TIM_OC_DisableFast(TIM3, LL_TIM_CHANNEL_CH3);
-  LL_TIM_SetTriggerOutput(TIM3, LL_TIM_TRGO_RESET);
-  LL_TIM_DisableMasterSlaveMode(TIM3);
-  /* USER CODE BEGIN TIM3_Init 2 */
 
+  /* USER CODE BEGIN TIM3_Init 2 */
+    TIM3->CCR3 = 0;
+    TIM3->CCMR2 = 0X0070;	/* mode PWM2 CH2 */
+    TIM3->CCER = (0x1 << 4)|(0x1 << 8);
+    TIM3->PSC = 400;   /*THIS LINE CODE TO SIMULATION 100HZ, DELETE THIS IN REAL PROJECT*/
+    TIM3->ARR = ARR_PWM - 1;
   /* USER CODE END TIM3_Init 2 */
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOB);
@@ -275,17 +255,17 @@ static void MX_TIM3_Init(void)
   PA7   ------> TIM3_CH2
   PB0   ------> TIM3_CH3
   */
-  GPIO_InitStruct.Pin = PWMT_2_Pin;
+  GPIO_InitStruct.Pin = M2_HIN_L_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  LL_GPIO_Init(PWMT_2_GPIO_Port, &GPIO_InitStruct);
+  LL_GPIO_Init(M2_HIN_L_GPIO_Port, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = PWMN_2_Pin;
+  GPIO_InitStruct.Pin = M2_HIN_R_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  LL_GPIO_Init(PWMN_2_GPIO_Port, &GPIO_InitStruct);
+  LL_GPIO_Init(M2_HIN_R_GPIO_Port, &GPIO_InitStruct);
 
 }
 
@@ -373,23 +353,27 @@ void CheckDirMotor(void) {
 	if(LL_GPIO_IsInputPinSet(GPIOA, SW_FW_Pin)) {
 		if(ButtonState == EXTIN) {
 		TIM2->CCR2 = temp_arr2 - 1;
+		TIM3->CCR2 = temp_arr2 - 1;
 		ButtonState = NOEXTIN;
 		}
 		if(CurrentState != FORWARD) {
 			ConfigTimerIOCW();
 			TIM2->CR1 = 1;
+			TIM3->CR1 = 1;
 			CurrentState = FORWARD;
-			//LL_GPIO_SetOutputPin(GPIOB, LED_DIR_Pin);
+			LL_GPIO_SetOutputPin(GPIOB, LED_DIR_Pin);
 			}
 		}
 	else {
 		if(ButtonState == EXTIN) {
 		TIM2->CCR3 = temp_arr2 - 1;
+		TIM3->CCR3 = temp_arr2 - 1;
 		ButtonState = NOEXTIN;
 		}
 		if(CurrentState != BACK) {
 			ConfigTimerIOCCW();
 			TIM2->CR1 = 1;
+			TIM3->CR1 = 1;
 			CurrentState = BACK;
 			LL_GPIO_ResetOutputPin(GPIOB, LED_DIR_Pin);
 		}
@@ -398,51 +382,35 @@ void CheckDirMotor(void) {
 void ConfigTimerIOCW(void) {
 	TIM2->CCR3 = 0; /* Make M1_HIN_R_Pin = 0 */
 	TIM2->CCR2 = 0; /* Make M1_HIN_L_Pin = 0 */
+	TIM3->CCR3 = 0; /* Make M2_HIN_R_Pin = 0 */
+	TIM3->CCR2 = 0; /* Make M2_HIN_L_Pin = 0 */
 	delay_ms(2);
 	TIM2->CR1 = 0;  /* Stop counter */
+	TIM3->CR1 = 0;
 	LL_GPIO_ResetOutputPin(GPIOA, M1_LIN_L_Pin);
+	LL_GPIO_ResetOutputPin(GPIOA, M2_LIN_L_Pin);
 	delay_ms(2);
 	LL_GPIO_SetOutputPin(GPIOA, M1_LIN_R_Pin);
+	LL_GPIO_SetOutputPin(GPIOA, M2_LIN_R_Pin);
 	TIM2->CCR2 = temp_arr2 - 1;  /*Make M1_HIN_L_Pin =1*/
+	TIM3->CCR2 = temp_arr2 - 1;  /*Make M1_HIN_L_Pin =1*/
 }
 void ConfigTimerIOCCW(void) {
 	 TIM2->CCR2 = 0; /* Make M1_HIN_L_Pin = 0 */
 	 TIM2->CCR3 = 0; /* Make M1_HIN_L_Pin = 0 */
+	 TIM3->CCR2 = 0; /* Make M2_HIN_L_Pin = 0 */
+	 TIM3->CCR3 = 0; /* Make M2_HIN_L_Pin = 0 */
 	 delay_ms(2);
 	 TIM2->CR1 = 0;
+	 TIM3->CR1 = 0;
 	 LL_GPIO_ResetOutputPin(GPIOA, M1_LIN_R_Pin);
+	 LL_GPIO_ResetOutputPin(GPIOA, M2_LIN_R_Pin);
 	 delay_ms(2);
 	 LL_GPIO_SetOutputPin(GPIOA, M1_LIN_L_Pin);
 	 TIM2->CCR3 = temp_arr2 - 1;  /*Make M1_HIN_L_Pin =1*/
-
+	 TIM3->CCR3 = temp_arr2 - 1;  /*Make M1_HIN_L_Pin =1*/
 }
 
-
-/*
-void IsSwapStateMotor(void) {
-	LL_GPIO_ResetOutputPin(LED_DIR_GPIO_Port, LED_DIR_Pin);
-	if(flag_swap == 1) {
-		NVIC_DisableIRQ(EXTI3_IRQn);
-		if(CurrentState == FORWARD) {
-			LL_GPIO_SetOutputPin(LED_DIR_GPIO_Port, LED_DIR_Pin);
-			RCC->APB1ENR &= ~(1U << 0);	 //cmt: disable timer2
-			delay_ms(100);				//cmt: time to mosfet off
-			RCC->APB1ENR |= (1<<0); 	// enable TIM2 clock
-			GPIOA->CRL = 0x44344B34;  // PA2: alternate func. output //
-			GPIOA->ODR &= ~(1 << 1);
-			delay_ms(10);
-			TIM2->CCR3 = temp_arr2;
-			TIM2->CCER = 0x1 << 8; // CC3P = 0, CC3E = 1 //
-			TIM2->CCMR2 = 0x0070; // toggle channel 3 //
-			TIM2->ARR =799;
-			TIM2->CR1 = 1; // start counting up //
-			flag_swap = 0;
-		}
-		NVIC_EnableIRQ(EXTI3_IRQn);
-	}
-
-}
-*/
 
 void EXTI9_5_IRQHandler(void)
 {
