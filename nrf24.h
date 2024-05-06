@@ -15,9 +15,16 @@ void CS_UnSelect (void);
 void CE_Enable (void);
 void CE_Disable (void);
 void nrf24_WriteReg (uint8_t Reg, uint8_t Data);
+void nrf24_WriteRegMulti (uint8_t Reg, uint8_t *data, int size);
 uint8_t nrf24_ReadReg (uint8_t Reg);
 void nrfsendCmd (uint8_t cmd);
 void NRF24_Init (void);
+void NRF24_TxMode (uint8_t *Address, uint8_t channel) ;
+uint8_t NRF24_Transmit (uint8_t *data);
+void NRF24_RxMode (uint8_t *Address, uint8_t channel);
+uint8_t isDataAvailable (int pipenum);
+void NRF24_Receive (uint8_t *data);
+static void delay_ms(uint16_t t);
 /* Memory Map */
 #define CONFIG      0x00
 #define EN_AA       0x01
